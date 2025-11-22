@@ -5,6 +5,7 @@
 body {
   margin: 0;
   font-family: "Poppins", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background-color: #f5f7ff;
+  /* Use a dark background so any uncovered space matches the dashboard theme */
+  background-color: #020617; /* slate-950 */
   color: #0f172a;
 }
