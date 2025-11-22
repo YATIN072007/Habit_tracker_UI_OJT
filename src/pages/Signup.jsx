@@ -1,10 +1,11 @@
 import { Link } from "react-router-dom";
+import Logo from "../components/Logo";
 
 export default function Signup() {
   return (
     <div className="min-h-screen bg-[#6558F5] flex flex-col items-center justify-center text-white px-4">
       <h1 className="text-5xl font-bold mb-12 flex items-center gap-3">
-        <div className="w-10 h-10 bg-white rounded-sm" />
+        <Logo size={48} />
         Habitrix
       </h1>
 
