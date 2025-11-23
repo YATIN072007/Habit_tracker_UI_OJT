@@ -3,6 +3,7 @@ import Landing from "./pages/Landing";
 import Signup from "./pages/Signup";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard/Dashboard";
+import MyHabits from "./pages/Dashboard/MyHabits";
 import Profile from "./pages/Profile";
 
 export default function App() {
@@ -13,6 +14,7 @@ export default function App() {
         <Route path="/signup" element={<Signup />} />
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/habits" element={<MyHabits />} />
         <Route path="/profile" element={<Profile />} />
       </Routes>
     </Router>

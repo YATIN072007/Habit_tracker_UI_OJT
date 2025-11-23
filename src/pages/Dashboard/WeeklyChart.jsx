@@ -1,7 +1,7 @@
 import {
   ResponsiveContainer,
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -27,22 +27,35 @@ export default function WeeklyChart({ data }) {
       </h2>
       <div className="mt-4 h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+          <LineChart
+            data={data}
+            margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
             <XAxis
               dataKey="day"
               tickLine={false}
               axisLine={false}
-              tick={{ fontSize: 12, fill: "#6b7280" }}
+              tick={{ fontSize: 12, fill: "#9ca3af" }}
             />
             <YAxis
               tickLine={false}
               axisLine={false}
-              tick={{ fontSize: 11, fill: "#9ca3af" }}
+              tick={{ fontSize: 11, fill: "#6b7280" }}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(59,130,246,0.08)" }} />
-            <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#0891b2" />
-          </BarChart>
+            <Tooltip
+              content={<CustomTooltip />}
+              cursor={{ stroke: "rgba(56,189,248,0.4)", strokeWidth: 2 }}
+            />
+            <Line
+              type="monotone"
+              dataKey="value"
+              stroke="#38bdf8"
+              strokeWidth={2.4}
+              dot={{ r: 4, strokeWidth: 2, stroke: "#020617", fill: "#38bdf8" }}
+              activeDot={{ r: 6 }}
+            />
+          </LineChart>
         </ResponsiveContainer>
       </div>
     </section>
