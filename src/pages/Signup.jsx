@@ -4,6 +4,7 @@ import Logo from "../components/Logo";
 
 const USERS_KEY = "habitrix_users";
 const ACTIVE_USER_KEY = "habitrix_activeUser";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -13,7 +14,11 @@ export default function Signup() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  const handleSignup = () => {
+  const handleBackHome = () => {
+    navigate("/");
+  };
+
+  const handleSignup = async () => {
     if (!fullName || !email || !username || !password || !confirmPassword) {
       alert("Please fill in all fields.");
       return;
@@ -32,44 +37,69 @@ export default function Signup() {
       return;
     }
 
-    const raw = window.localStorage.getItem(USERS_KEY);
-    const users = raw ? JSON.parse(raw) : {};
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: fullName.trim(),
+          email: trimmedEmail,
+          username: trimmedUsername,
+          password,
+        }),
+      });
 
-    if (users[trimmedUsername]) {
-      alert("An account with that username already exists.");
-      return;
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const message =
+          data?.message || "Unable to sign up. Please try again later.";
+        alert(message);
+        return;
+      }
+
+      const createdUser = data?.user;
+      const safeUsername =
+        (createdUser && createdUser.username) || trimmedUsername;
+
+      const raw = window.localStorage.getItem(USERS_KEY);
+      const users = raw ? JSON.parse(raw) : {};
+      const existing = users[safeUsername] || {};
+
+      users[safeUsername] = {
+        ...existing,
+        username: safeUsername,
+        name: fullName.trim(),
+        email: trimmedEmail,
+        password,
+        habits: Array.isArray(existing.habits) ? existing.habits : [],
+        notes: Array.isArray(existing.notes) ? existing.notes : [],
+        dob: existing.dob || "",
+        gender: existing.gender || "",
+        bio: existing.bio || "",
+        avatarDataUrl: existing.avatarDataUrl || "",
+      };
+
+      window.localStorage.setItem(USERS_KEY, JSON.stringify(users));
+      window.localStorage.setItem(ACTIVE_USER_KEY, safeUsername);
+
+      navigate("/dashboard");
+    } catch (error) {
+      console.error("Signup error:", error);
+      alert("Something went wrong while signing up. Please try again.");
     }
-
-    const lowerEmail = trimmedEmail.toLowerCase();
-    const emailTaken = Object.values(users).some(
-      (user) => user.email && user.email.toLowerCase() === lowerEmail
-    );
-    if (emailTaken) {
-      alert("An account with that email already exists.");
-      return;
-    }
-
-    users[trimmedUsername] = {
-      username: trimmedUsername,
-      name: fullName.trim(),
-      email: trimmedEmail,
-      password,
-      habits: [],
-      notes: [],
-      dob: "",
-      gender: "",
-      bio: "",
-      avatarDataUrl: "",
-    };
-
-    window.localStorage.setItem(USERS_KEY, JSON.stringify(users));
-    window.localStorage.setItem(ACTIVE_USER_KEY, trimmedUsername);
-
-    navigate("/dashboard");
   };
 
   return (
-    <div className="min-h-screen bg-[#6558F5] flex flex-col items-center justify-center text-white px-4">
+    <div className="min-h-screen bg-[#6558F5] flex flex-col items-center justify-center text-white px-4 relative">
+      <button
+        type="button"
+        onClick={handleBackHome}
+        className="absolute top-6 right-6 text-sm bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-full border border-white/30"
+      >
+        {"<- Back to Home page"}
+      </button>
+
       <h1 className="text-5xl font-bold mb-12 flex items-center gap-3">
         <Logo size={48} />
         Habitrix

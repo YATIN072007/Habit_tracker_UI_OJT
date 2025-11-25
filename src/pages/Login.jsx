@@ -4,48 +4,90 @@ import Logo from "../components/Logo";
 
 const USERS_KEY = "habitrix_users";
 const ACTIVE_USER_KEY = "habitrix_activeUser";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function Login() {
   const navigate = useNavigate();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleLogin = () => {
+  const handleBackHome = () => {
+    navigate("/");
+  };
+
+  const handleLogin = async () => {
     if (!identifier || !password) {
       alert("Please enter your email/username and password.");
       return;
     }
 
-    const raw = window.localStorage.getItem(USERS_KEY);
-    const users = raw ? JSON.parse(raw) : {};
-    const search = identifier.trim().toLowerCase();
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          identifier: identifier.trim(),
+          password,
+        }),
+      });
 
-    let matchedUsername = null;
-    let matchedRecord = null;
+      const data = await response.json().catch(() => null);
 
-    Object.entries(users).some(([key, user]) => {
-      if (!user) return false;
-      const userUsername = (user.username || key).toLowerCase();
-      const userEmail = user.email ? user.email.toLowerCase() : null;
-      if (userUsername === search || userEmail === search) {
-        matchedUsername = user.username || key;
-        matchedRecord = user;
-        return true;
+      if (!response.ok) {
+        if (response.status === 404) {
+          alert("User does not exist, please sign up.");
+        } else if (response.status === 401) {
+          alert("Incorrect password.");
+        } else {
+          const message =
+            data?.message ||
+            "Unable to log in. Please check your details and try again.";
+          alert(message);
+        }
+        return;
       }
-      return false;
-    });
 
-    if (!matchedRecord || matchedRecord.password !== password) {
-      alert("Invalid email/username or password.");
-      return;
+      const user = data?.user;
+      const safeUsername = user?.username || identifier.trim();
+
+      const raw = window.localStorage.getItem(USERS_KEY);
+      const users = raw ? JSON.parse(raw) : {};
+      const existing = users[safeUsername] || {};
+
+      users[safeUsername] = {
+        ...existing,
+        username: safeUsername,
+        name: user?.name || existing.name || safeUsername,
+        email: user?.email || existing.email || identifier.trim(),
+        password,
+        habits: Array.isArray(existing.habits) ? existing.habits : [],
+        notes: Array.isArray(existing.notes) ? existing.notes : [],
+        dob: existing.dob || "",
+        gender: existing.gender || "",
+        bio: existing.bio || "",
+        avatarDataUrl: existing.avatarDataUrl || "",
+      };
+
+      window.localStorage.setItem(USERS_KEY, JSON.stringify(users));
+      window.localStorage.setItem(ACTIVE_USER_KEY, safeUsername);
+
+      navigate("/dashboard");
+    } catch (error) {
+      console.error("Login error:", error);
+      alert("Something went wrong while logging in. Please try again.");
     }
-
-    window.localStorage.setItem(ACTIVE_USER_KEY, matchedUsername);
-    navigate("/dashboard");
   };
 
   return (
-    <div className="min-h-screen bg-[#6558F5] flex flex-col items-center justify-center text-white px-4">
+    <div className="min-h-screen bg-[#6558F5] flex flex-col items-center justify-center text-white px-4 relative">
+      <button
+        type="button"
+        onClick={handleBackHome}
+        className="absolute top-6 right-6 text-sm bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-full border border-white/30"
+      >
+        {"<- Back to Home page"}
+      </button>
+
       <h1 className="text-5xl font-bold mb-12 flex items-center gap-3">
         <Logo size={48} />
         Habitrix

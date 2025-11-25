@@ -1,52 +1,132 @@
+/* eslint-env node */
+/* eslint-disable no-undef */
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./testdb.js";
 import User from "./models/User.js";
-import bcrypt from "bcryptjs";
 
 dotenv.config();
-connectDB();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Simple test route
-app.get("/api/ping", (req, res) => {
-  res.json({ message: "Backend working!" });
+// connect to MongoDB
+connectDB();
+
+// Health check route
+app.get("/", (req, res) => {
+  res.send("Backend is running...");
 });
 
-// Signup Route
+// Simple ping route for testing
+app.get("/api/ping", (req, res) => {
+  res.json({ message: "pong" });
+});
+
+// Signup route
 app.post("/api/signup", async (req, res) => {
-  const { name, email, password } = req.body;
-
-  // Validation to prevent crashes
-  if (!name || !email || !password) {
-    return res.status(400).json({
-      success: false,
-      message: "Missing fields",
-    });
-  }
-
   try {
-    const exists = await User.findOne({ email });
-    if (exists) {
-      return res.json({ success: false, message: "User already exists" });
+    const { name, email, username, password } = req.body;
+
+    if (!name || !email || !username || !password) {
+      return res.status(400).json({ message: "All fields are required." });
     }
 
-    const hashed = await bcrypt.hash(password, 10);
+    const trimmedName = String(name).trim();
+    const trimmedEmail = String(email).trim().toLowerCase();
+    const trimmedUsername = String(username).trim().toLowerCase();
+    const plainPassword = String(password);
 
-    await User.create({ name, email, password: hashed });
+    if (!trimmedEmail.includes("@")) {
+      return res
+        .status(400)
+        .json({ message: "Please enter a valid email address." });
+    }
 
-    res.json({ success: true, message: "Account created" });
-  } catch (err) {
-    console.error("Signup error:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+    const existingUser = await User.findOne({
+      $or: [{ email: trimmedEmail }, { username: trimmedUsername }],
+    });
+
+    if (existingUser) {
+      return res
+        .status(409)
+        .json({ message: "User already exists, please login." });
+    }
+
+    const newUser = await User.create({
+      name: trimmedName,
+      email: trimmedEmail,
+      username: trimmedUsername,
+      password: plainPassword,
+    });
+
+    const safeUser = {
+      id: newUser._id.toString(),
+      name: newUser.name,
+      email: newUser.email,
+      username: newUser.username,
+    };
+
+    return res.status(201).json({
+      message: "Signup successful.",
+      user: safeUser,
+    });
+  } catch (error) {
+    console.error("Error in /api/signup:", error);
+    return res.status(500).json({ message: "Something went wrong." });
   }
 });
 
-app.listen(process.env.PORT, () =>
-  console.log(`Server running on port ${process.env.PORT}`)
-);
+// Login route
+app.post("/api/login", async (req, res) => {
+  try {
+    const { identifier, password } = req.body;
 
+    if (!identifier || !password) {
+      return res.status(400).json({
+        message: "Email/username and password are required.",
+      });
+    }
+
+    const search = String(identifier).trim().toLowerCase();
+    const plainPassword = String(password);
+
+    const user = await User.findOne({
+      $or: [{ email: search }, { username: search }],
+    });
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ message: "User does not exist, please sign up." });
+    }
+
+    if (user.password !== plainPassword) {
+      return res.status(401).json({ message: "Incorrect password." });
+    }
+
+    const safeUser = {
+      id: user._id.toString(),
+      name: user.name,
+      email: user.email,
+      username: user.username,
+    };
+
+    return res.json({
+      message: "Login successful.",
+      user: safeUser,
+    });
+  } catch (error) {
+    console.error("Error in /api/login:", error);
+    return res.status(500).json({ message: "Something went wrong." });
+  }
+});
+
+// PORT
+const PORT = process.env.PORT || 8000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
