@@ -4,7 +4,7 @@ import Logo from "../../components/Logo";
 const navItems = [
   { label: "Dashboard", icon: "▢", path: "/dashboard" },
   { label: "My Habits", icon: "☰", path: "/habits" },
-  { label: "Analytics", icon: "📊", path: null },
+  { label: "Analytics", icon: "📊", path: "/analytics" },
   { label: "Community", icon: "👥", path: null },
   { label: "Settings", icon: "⚙", path: null },
 ];
