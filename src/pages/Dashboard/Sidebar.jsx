@@ -5,7 +5,7 @@ const navItems = [
   { label: "Dashboard", icon: "▢", path: "/dashboard" },
   { label: "My Habits", icon: "☰", path: "/habits" },
   { label: "Analytics", icon: "〆", path: "/analytics" },
-  // { label: "Mood Tracker", icon: "⽱", path: "/mood-tracker" },
+  { label: "Mood Tracker", icon: "⽱", path: "/mood-tracker" },
   { label: "Settings", icon: "⚙", path: "/settings" },
 ];
 

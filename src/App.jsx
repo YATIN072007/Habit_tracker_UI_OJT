@@ -5,6 +5,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import MyHabits from "./pages/Dashboard/MyHabits";
 import Analytics from "./pages/Dashboard/Analytics";
+import MoodTracker from "./pages/Dashboard/MoodTracker";
 import Profile from "./pages/Profile";
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/habits" element={<MyHabits />} />
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="/mood-tracker" element={<MoodTracker />} />
         <Route path="/profile" element={<Profile />} />
       </Routes>
     </Router>
