@@ -25,6 +25,12 @@ const CommunityPostSchema = new mongoose.Schema(
     progressPercent: { type: Number, default: 0 },
     badgeLabel: { type: String, trim: true, default: "" },
     likes: { type: Number, default: 0 },
+    likedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     commentsCount: { type: Number, default: 0 },
     comments: { type: [CommentSchema], default: [] },
   },

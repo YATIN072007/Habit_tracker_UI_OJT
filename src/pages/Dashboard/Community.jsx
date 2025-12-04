@@ -135,6 +135,7 @@ function normalizeFeedPost(post, currentUserId) {
     progress: hasProgress ? clampedProgress : 0,
     badge: hasProgress ? post.badgeLabel || "" : "",
     likes: post.likes ?? 0,
+    likedByCurrentUser: !!post.likedByCurrentUser,
     commentsCount:
       typeof post.commentsCount === "number"
         ? post.commentsCount
@@ -157,6 +158,8 @@ export default function Community() {
   const [feed, setFeed] = useState([]);
   const [challenges, setChallenges] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [communityRank, setCommunityRank] = useState(null);
+  const [communitySize, setCommunitySize] = useState(0);
   const [activePostMenuId, setActivePostMenuId] = useState(null);
   const [activeCommentsPostId, setActiveCommentsPostId] = useState(null);
   const [commentDrafts, setCommentDrafts] = useState({});
@@ -175,12 +178,12 @@ export default function Community() {
 
     async function load() {
       try {
-        const [user, feedData, challengesData, leaderboardData] =
+        const [user, feedData, challengesPayload, leaderboardPayload] =
           await Promise.all([
             fetchUserState(activeUserId),
-            apiFetchCommunityFeed(),
+            apiFetchCommunityFeed(activeUserId),
             apiFetchChallenges(activeUserId),
-            apiFetchLeaderboard(),
+            apiFetchLeaderboard(activeUserId),
           ]);
 
         setUserId(activeUserId);
@@ -200,7 +203,8 @@ export default function Community() {
           .map((post) => normalizeFeedPost(post, activeUserId))
           .filter(Boolean);
 
-        const normalizedLeaderboard = (leaderboardData || []).map(
+        const leaderboardData = leaderboardPayload.leaderboard || [];
+        const normalizedLeaderboard = leaderboardData.map(
           (entry, index) => ({
             id: entry.rank ?? index + 1,
             name: entry.name,
@@ -211,8 +215,10 @@ export default function Community() {
         );
 
         setFeed(normalizedFeed);
-        setChallenges(challengesData || []);
+        setChallenges(challengesPayload || []);
         setLeaderboard(normalizedLeaderboard);
+        setCommunityRank(leaderboardPayload.currentUserRank ?? null);
+        setCommunitySize(leaderboardPayload.communitySize ?? 0);
         setIsReady(true);
       } catch (error) {
         console.error("Failed to load community data", error);
@@ -266,10 +272,16 @@ export default function Community() {
   };
 
   const handleLikePost = async (postId) => {
+    if (!userId) return;
     try {
-      const likes = await apiLikeCommunityPost(postId);
+      const { likes, likedByCurrentUser } = await apiLikeCommunityPost(
+        postId,
+        userId
+      );
       setFeed((prev) =>
-        prev.map((p) => (p.id === postId ? { ...p, likes } : p))
+        prev.map((p) =>
+          p.id === postId ? { ...p, likes, likedByCurrentUser } : p
+        )
       );
     } catch (error) {
       console.error("Failed to like post", error);
@@ -572,9 +584,11 @@ export default function Community() {
                         <button
                           type="button"
                           onClick={() => handleLikePost(post.id)}
-                          className="inline-flex items-center gap-1 hover:text-slate-200"
+                          className={`inline-flex items-center gap-1 hover:text-slate-200 ${
+                            post.likedByCurrentUser ? "text-rose-400" : ""
+                          }`}
                         >
-                          <span>❤️</span>
+                          <span>{post.likedByCurrentUser ? "❤️" : "🤍"}</span>
                           <span>{post.likes} likes</span>
                         </button>
                         <button
@@ -725,10 +739,12 @@ export default function Community() {
                         Community rank
                       </dt>
                       <dd className="mt-1 text-lg font-semibold text-amber-400">
-                        #42
+                        {communityRank ? `#${communityRank}` : "--"}
                       </dd>
                       <p className="mt-1 text-[10px] text-slate-500">
-                        demo ranking only
+                        {communityRank && communitySize > 0
+                          ? `out of ${communitySize} active members`
+                          : "Complete some habits to enter the rankings"}
                       </p>
                     </div>
                   </dl>

@@ -164,8 +164,9 @@ export async function apiDeleteMoodDay(userId, dateKey) {
 
 // Community
 
-export async function apiFetchCommunityFeed() {
-  const data = await request("/api/community/feed");
+export async function apiFetchCommunityFeed(userId) {
+  const params = userId ? `?userId=${encodeURIComponent(userId)}` : "";
+  const data = await request(`/api/community/feed${params}`);
   return data.feed || [];
 }
 
@@ -193,11 +194,12 @@ export async function apiDeleteCommunityPost(postId, userId) {
   return data;
 }
 
-export async function apiLikeCommunityPost(postId) {
+export async function apiLikeCommunityPost(postId, userId) {
   const data = await request(`/api/community/posts/${postId}/like`, {
     method: "POST",
+    body: JSON.stringify({ userId }),
   });
-  return data.likes;
+  return data; // { likes, likedByCurrentUser }
 }
 
 export async function apiAddCommunityComment(postId, payload) {
@@ -230,7 +232,12 @@ export async function apiToggleJoinChallenge(challengeId, userId) {
   return data;
 }
 
-export async function apiFetchLeaderboard() {
-  const data = await request("/api/community/leaderboard");
-  return data.leaderboard || [];
+export async function apiFetchLeaderboard(userId) {
+  const params = userId ? `?userId=${encodeURIComponent(userId)}` : "";
+  const data = await request(`/api/community/leaderboard${params}`);
+  return {
+    leaderboard: data.leaderboard || [],
+    currentUserRank: data.currentUserRank ?? null,
+    communitySize: data.communitySize ?? 0,
+  };
 }

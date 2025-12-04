@@ -560,9 +560,17 @@ app.delete("/api/users/:id/moods/:dateKey", async (req, res) => {
 // === Community routes ===
 
 // Helper to map CommunityPost -> API payload
-function toCommunityPostPayload(postDoc) {
+function toCommunityPostPayload(postDoc, currentUserId) {
   const userRef = postDoc.userId;
   const userId = userRef && userRef._id ? userRef._id : userRef;
+
+  const likedBy = Array.isArray(postDoc.likedBy) ? postDoc.likedBy : [];
+  const currentUserStr = currentUserId ? String(currentUserId) : null;
+  const likedByCurrentUser =
+    !!currentUserStr && likedBy.some((u) => String(u) === currentUserStr);
+
+  const safeLikes =
+    typeof postDoc.likes === "number" ? postDoc.likes : likedBy.length;
 
   return {
     id: postDoc._id.toString(),
@@ -574,7 +582,8 @@ function toCommunityPostPayload(postDoc) {
     challengeName: postDoc.challengeName,
     progressPercent: postDoc.progressPercent,
     badgeLabel: postDoc.badgeLabel,
-    likes: postDoc.likes,
+    likes: safeLikes,
+    likedByCurrentUser,
     commentsCount:
       typeof postDoc.commentsCount === "number"
         ? postDoc.commentsCount
@@ -596,12 +605,17 @@ function toCommunityPostPayload(postDoc) {
 // Get latest feed posts
 app.get("/api/community/feed", async (req, res) => {
   try {
+    const { userId } = req.query;
+    const currentUserId = userId ? String(userId) : null;
+
     const posts = await CommunityPost.find({})
       .sort({ createdAt: -1 })
       .limit(30)
       .populate("userId", "name username avatarDataUrl");
 
-    const feed = posts.map((post) => toCommunityPostPayload(post));
+    const feed = posts.map((post) =>
+      toCommunityPostPayload(post, currentUserId)
+    );
 
     return res.json({ feed });
   } catch (error) {
@@ -630,10 +644,13 @@ app.post("/api/community/posts", async (req, res) => {
       badgeLabel: badgeLabel || "",
     });
 
-    const populated = await post.populate("userId", "name username avatarDataUrl");
+    const populated = await post.populate(
+      "userId",
+      "name username avatarDataUrl"
+    );
 
     return res.status(201).json({
-      post: toCommunityPostPayload(populated),
+      post: toCommunityPostPayload(populated, userId),
     });
   } catch (error) {
     console.error("Error in POST /api/community/posts", error);
@@ -673,7 +690,7 @@ app.patch("/api/community/posts/:postId", async (req, res) => {
     post.text = String(text).trim();
     await post.save();
 
-    return res.json({ post: toCommunityPostPayload(post) });
+    return res.json({ post: toCommunityPostPayload(post, userId) });
   } catch (error) {
     console.error("Error in PATCH /api/community/posts/:postId", error);
     return res.status(500).json({ message: "Something went wrong." });
@@ -710,17 +727,43 @@ app.delete("/api/community/posts/:postId", async (req, res) => {
   }
 });
 
-// Like a post (simple counter, no per-user tracking)
+// Toggle like for a post (per-user)
 app.post("/api/community/posts/:postId/like", async (req, res) => {
   try {
     const { postId } = req.params;
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ message: "userId is required" });
+    }
+
     const post = await CommunityPost.findById(postId);
     if (!post) return res.status(404).json({ message: "Post not found" });
 
-    post.likes += 1;
+    const userIdStr = String(userId);
+    const likedByArray = Array.isArray(post.likedBy) ? post.likedBy : [];
+    const existingIndex = likedByArray.findIndex(
+      (u) => String(u) === userIdStr
+    );
+
+    let likedByCurrentUser = false;
+
+    if (existingIndex >= 0) {
+      // Unlike: remove from likedBy and decrement likes (not below zero)
+      likedByArray.splice(existingIndex, 1);
+      post.likes = Math.max(0, (post.likes || 0) - 1);
+      likedByCurrentUser = false;
+    } else {
+      // Like: add to likedBy and increment likes
+      likedByArray.push(userId);
+      post.likes = (post.likes || 0) + 1;
+      likedByCurrentUser = true;
+    }
+
+    post.likedBy = likedByArray;
     await post.save();
 
-    return res.json({ likes: post.likes });
+    return res.json({ likes: post.likes, likedByCurrentUser });
   } catch (error) {
     console.error("Error in POST /api/community/posts/:postId/like", error);
     return res.status(500).json({ message: "Something went wrong." });
@@ -900,35 +943,55 @@ app.post("/api/community/challenges/:id/toggle-join", async (req, res) => {
 // Simple leaderboard based on total habit completions
 app.get("/api/community/leaderboard", async (req, res) => {
   try {
+    const { userId } = req.query;
+    const currentUserId = userId ? String(userId) : null;
+
     const users = await User.find({}, "name username avatarDataUrl habits");
 
-    const entries = users
-      .map((user) => {
-        const habits = Array.isArray(user.habits) ? user.habits : [];
-        let totalCompletions = 0;
-        habits.forEach((habit) => {
-          totalCompletions += Array.isArray(habit.completions)
-            ? habit.completions.length
-            : 0;
-        });
+    const entries = users.map((user) => {
+      const habits = Array.isArray(user.habits) ? user.habits : [];
+      let totalCompletions = 0;
+      habits.forEach((habit) => {
+        totalCompletions += Array.isArray(habit.completions)
+          ? habit.completions.length
+          : 0;
+      });
 
-        const totalHabits = habits.length || 1;
-        const completionRate = Math.round(totalCompletions / totalHabits);
+      const totalHabits = habits.length || 1;
+      const completionRate = Math.round(totalCompletions / totalHabits);
 
-        return {
-          userId: user._id.toString(),
-          name: user.name,
-          username: user.username,
-          avatarDataUrl: user.avatarDataUrl,
-          totalCompletions,
-          completionRate,
-        };
-      })
-      .sort((a, b) => b.completionRate - a.completionRate)
-      .slice(0, 5)
-      .map((entry, index) => ({ ...entry, rank: index + 1 }));
+      return {
+        userId: user._id.toString(),
+        name: user.name,
+        username: user.username,
+        avatarDataUrl: user.avatarDataUrl,
+        totalCompletions,
+        completionRate,
+      };
+    });
 
-    return res.json({ leaderboard: entries });
+    // Sort all users by completion rate (highest first)
+    const sorted = entries.sort((a, b) => b.completionRate - a.completionRate);
+    const communitySize = sorted.length;
+
+    // Determine current user's rank if we know who they are
+    let currentUserRank = null;
+    if (currentUserId) {
+      const index = sorted.findIndex(
+        (entry) => String(entry.userId) === currentUserId
+      );
+      if (index >= 0) {
+        currentUserRank = index + 1;
+      }
+    }
+
+    // Top 5 for the visible leaderboard list
+    const leaderboard = sorted.slice(0, 5).map((entry, index) => ({
+      ...entry,
+      rank: index + 1,
+    }));
+
+    return res.json({ leaderboard, currentUserRank, communitySize });
   } catch (error) {
     console.error("Error in GET /api/community/leaderboard", error);
     return res.status(500).json({ message: "Something went wrong." });
